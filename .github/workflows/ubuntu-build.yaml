@@ -1,0 +1,80 @@
+name: Build Ubuntu Executable
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-22.04
+    name: Build OpenSTA for Ubuntu
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            gcc \
+            g++ \
+            tcl-dev \
+            tcl-tclreadline \
+            libeigen3-dev \
+            swig \
+            bison \
+            flex \
+            zlib1g-dev \
+            wget
+      
+      - name: Cache CUDD
+        id: cache-cudd
+        uses: actions/cache@v4
+        with:
+          path: cudd-3.0.0
+          key: ${{ runner.os }}-cudd-3.0.0
+      
+      - name: Download and Build CUDD
+        if: steps.cache-cudd.outputs.cache-hit != 'true'
+        run: |
+          wget https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz
+          tar -xzf cudd-3.0.0.tar.gz
+          cd cudd-3.0.0
+          ./configure
+          make -j$(nproc)
+      
+      - name: Build OpenSTA
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCUDD_DIR=../cudd-3.0.0 ..
+          make -j$(nproc)
+      
+      - name: Test Executable
+        run: |
+          ./build/sta -version || true
+          ./build/sta -help || true
+          ls -lh build/sta
+      
+      - name: Upload OpenSTA Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensta-ubuntu-22.04
+          path: build/sta
+          retention-days: 30
+      
+      - name: Upload OpenSTA Library
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensta-library-ubuntu-22.04
+          path: build/libOpenSTA.a
+          retention-days: 30
