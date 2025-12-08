@@ -15,6 +15,8 @@ jobs:
   build-ubuntu:
     runs-on: ubuntu-22.04
     name: Build OpenSTA for Ubuntu
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout Code
